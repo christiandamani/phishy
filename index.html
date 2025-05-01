@@ -1,15 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Phisy - Check Suspicious Links</title>
-  <meta property="og:title" content="Phisy - Detect Phishing Messages" />
-  <meta property="og:description" content="Instantly check messages and links for phishing threats. Now with GPT analysis." />
-  <meta property="og:image" content="phisy_logo.png" />
-  <meta property="og:type" content="website" />
-  <meta property="og:url" content="https://yourusername.github.io/phisy/" />
-  <link rel="icon" href="phisy_logo.png" type="image/png">
+  <link rel="icon" href="phisy_logo.png" type="image/png" />
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -104,17 +99,121 @@
       border-radius: 5px;
       cursor: pointer;
     }
-    #gptResult {
-      margin-top: 1rem;
-      font-size: 0.95rem;
-      background-color: #222;
-      padding: 1rem;
-      border-radius: 5px;
-      border: 1px solid #444;
-    }
   </style>
 </head>
 <body>
-<script>
-  let gptUsed = false;
-</script>
+  <img src="phisy_logo.png" alt="Phisy Logo" class="logo" />
+  <button class="dark-toggle" onclick="toggleDarkMode()">☀️</button>
+  <div class="container">
+    <img src="phisy_logo.png" alt="Phisy Logo Center" style="width: 150px; height: auto; margin: 0 auto; display: block;" />
+    <p>Paste a link, email, or message below to check if it's phishy.</p>
+    <textarea id="inputText" placeholder="Paste suspicious text or a link here..."></textarea><br />
+    <button onclick="checkPhishy()">Check This</button>
+    <button onclick="resetPhisy()">Reset</button>
+    <button onclick="copyResults()">Copy Results</button>
+    <button onclick="clearHistory()">Clear History</button>
+
+    <div class="meter" title="Risk Level: Green = safe, Yellow = suspicious, Red = likely phishing">
+      <div id="meterFill" class="meter-fill"></div>
+    </div>
+    <div id="resultBox" class="result"></div>
+    <div id="tip" class="tip"></div>
+    <div id="historyBox">
+      <h3>Scan History</h3>
+      <ul id="historyList"></ul>
+    </div>
+  </div>
+
+  <script>
+    const history = [];
+    let isDark = true;
+
+    function toggleDarkMode() {
+      isDark = !isDark;
+      document.body.style.backgroundColor = isDark ? '#000' : '#f4f4f4';
+      document.body.style.color = isDark ? 'white' : 'black';
+    }
+
+    function checkPhishy() {
+      const input = document.getElementById("inputText").value.toLowerCase();
+      const resultBox = document.getElementById("resultBox");
+      const tipBox = document.getElementById("tip");
+      const meterFill = document.getElementById("meterFill");
+
+      let score = 0;
+      let reasons = [];
+
+      if (input.includes("bit.ly") || input.includes("tinyurl") || input.includes("goo.gl")) {
+        score++; reasons.push({text: "Shortened URL detected", tip: "Often used to hide phishing URLs."});
+      }
+      if (input.match(/\\.(tk|ru|xyz|club|top)/)) {
+        score++; reasons.push({text: "Suspicious domain extension", tip: "Common in phishing campaigns."});
+      }
+      if (input.includes("urgent") || input.includes("verify") || input.includes("reset") || input.includes("click here")) {
+        score++; reasons.push({text: "Urgency detected", tip: "Scammers pressure you to act quickly."});
+      }
+      if (input.includes("login") || input.includes("password") || input.includes("account")) {
+        score++; reasons.push({text: "Login-related terms found", tip: "Common bait used to steal credentials."});
+      }
+      if (input.includes("redirect=") || input.includes("@") || input.includes("script")) {
+        score++; reasons.push({text: "Possible redirect or script", tip: "May indicate malicious behavior."});
+      }
+
+      let resultTitle = "✅ Looks okay.";
+      let color = "#0a0", width = "33%";
+
+      if (score <= 1) {
+        resultBox.style.backgroundColor = "#204020";
+        resultBox.style.color = "#0f0";
+      } else if (score <= 3) {
+        resultTitle = "⚠️ Be cautious.";
+        resultBox.style.backgroundColor = "#3a3300";
+        resultBox.style.color = "#ffc107";
+        color = "#ffcc00"; width = "66%";
+      } else {
+        resultTitle = "🚨 Likely phishing.";
+        resultBox.style.backgroundColor = "#330000";
+        resultBox.style.color = "#f00";
+        color = "#ff0000"; width = "100%";
+      }
+
+      const reasonsHTML = reasons.map(r => `<li title='${r.tip}'>${r.text}</li>`).join("");
+      resultBox.innerHTML = `<strong>${resultTitle}</strong><br/><ul class='reasons'>${reasonsHTML}</ul>`;
+      resultBox.style.display = "block";
+      meterFill.style.backgroundColor = color;
+      meterFill.style.width = width;
+      tipBox.innerHTML = "💡 Never enter info on an untrusted page.";
+
+      history.unshift({ input: input, result: resultTitle });
+      if (history.length > 5) history.pop();
+      updateHistory();
+    }
+
+    function resetPhisy() {
+      document.getElementById("inputText").value = "";
+      document.getElementById("resultBox").style.display = "none";
+      document.getElementById("tip").innerHTML = "";
+      document.getElementById("meterFill").style.width = "0";
+    }
+
+    function updateHistory() {
+      const list = document.getElementById("historyList");
+      list.innerHTML = history.map(entry => `<li><strong>Input:</strong> ${entry.input}<br/><strong>Result:</strong> ${entry.result}</li>`).join("");
+    }
+
+    function clearHistory() {
+      history.length = 0;
+      updateHistory();
+    }
+
+    function copyResults() {
+      const resultBox = document.getElementById("resultBox");
+      if (resultBox.innerText) {
+        navigator.clipboard.writeText(resultBox.innerText).then(() => {
+          alert("Results copied to clipboard!");
+        });
+      }
+    }
+  </script>
+</body>
+</html>

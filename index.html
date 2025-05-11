@@ -134,7 +134,7 @@
     <div class="preview" id="imagePreview"></div>
     <textarea placeholder="Paste suspicious text or a link here..." id="textArea"></textarea>
     <div class="button-group">
-      <button onclick="checkThis()">Check This</button>
+      <button onclick="checkThis()" id="checkBtn">Check This</button>
       <button onclick="resetForm()">Reset</button>
       <button onclick="copyResults()">Copy Results</button>
       <button onclick="clearHistory()">Clear History</button>
@@ -154,6 +154,7 @@
     const outputDiv = document.getElementById('output');
     const textArea = document.getElementById('textArea');
     const scoreResult = document.getElementById('scoreResult');
+    const checkBtn = document.getElementById('checkBtn');
 
     let extractedText = '';
     let fileLoaded = false;
@@ -168,11 +169,16 @@
           imagePreview.innerHTML = `
             <img src="${imgSrc}" alt="Image Preview">
             <button class='remove-btn' onclick='removeImage()'>×</button>
-            <div class='preview-text' id='textPreview'>Preview loaded. Press "Check This" to analyze.</div>
+            <div class='preview-text' id='textPreview'>Scanning image…</div>
           `;
+          checkBtn.disabled = true;
           Tesseract.recognize(imgSrc, 'eng').then(({ data: { text } }) => {
-            extractedText = text;
+            extractedText = text.trim();
             fileLoaded = true;
+            document.getElementById('textPreview').innerText = extractedText
+              ? summarizeText(extractedText)
+              : 'No readable text found.';
+            checkBtn.disabled = false;
           });
         };
         reader.readAsDataURL(file);
@@ -187,12 +193,13 @@
       imagePreview.style.display = 'none';
       extractedText = '';
       fileLoaded = false;
+      checkBtn.disabled = false;
     }
 
     function checkThis() {
       const input = textArea.value.trim() || extractedText.trim();
       if (!input) {
-        alert('Please paste suspicious text or upload an image.');
+        alert('Please paste suspicious text or wait for the image to finish scanning.');
         return;
       }
       const result = evaluateText(input);
@@ -216,7 +223,7 @@
     }
 
     function summarizeText(text) {
-      const clean = text.replace(/\\s+/g, ' ').trim();
+      const clean = text.replace(/\s+/g, ' ').trim();
       return clean.length > 80 ? clean.substring(0, 77) + '…' : clean;
     }
 
@@ -235,6 +242,7 @@
       scoreResult.innerText = '';
       extractedText = '';
       fileLoaded = false;
+      checkBtn.disabled = false;
     }
 
     function copyResults() {

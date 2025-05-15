@@ -149,112 +149,143 @@
 
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
   <script>
-    const fileInput = document.getElementById('fileInput');
-    const imagePreview = document.getElementById('imagePreview');
-    const outputDiv = document.getElementById('output');
-    const textArea = document.getElementById('textArea');
-    const scoreResult = document.getElementById('scoreResult');
-    const checkBtn = document.getElementById('checkBtn');
+   const fileInput = document.getElementById('fileInput');
+  const imagePreview = document.getElementById('imagePreview');
+  const outputDiv = document.getElementById('output');
+  const textArea = document.getElementById('textArea');
+  const scoreResult = document.getElementById('scoreResult');
+  const checkBtn = document.getElementById('checkBtn');
 
-    let extractedText = '';
-    let fileLoaded = false;
+  let extractedText = '';
+  let fileLoaded = false;
 
-    fileInput.addEventListener('change', function () {
-      const file = this.files[0];
-      if (file && file.type.startsWith('image/')) {
-        const reader = new FileReader();
-        reader.onload = function (e) {
-          const imgSrc = e.target.result;
-          imagePreview.style.display = 'block';
-          imagePreview.innerHTML = `
-            <img src="${imgSrc}" alt="Image Preview">
-            <button class='remove-btn' onclick='removeImage()'>×</button>
-            <div class='preview-text' id='textPreview'>Scanning image…</div>
-          `;
-          checkBtn.disabled = true;
-          Tesseract.recognize(imgSrc, 'eng').then(({ data: { text } }) => {
-            extractedText = text.trim();
-            fileLoaded = true;
-            document.getElementById('textPreview').innerText = extractedText
-              ? summarizeText(extractedText)
-              : 'No readable text found.';
-            checkBtn.disabled = false;
-          });
-        };
-        reader.readAsDataURL(file);
-      } else {
-        removeImage();
-      }
+  fileInput.addEventListener('change', function () {
+    const file = this.files[0];
+    if (file && file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        const imgSrc = e.target.result;
+        imagePreview.style.display = 'block';
+        imagePreview.innerHTML = `
+          <img src="${imgSrc}" alt="Image Preview">
+          <button class='remove-btn' onclick='removeImage()'>×</button>
+          <div class='preview-text' id='textPreview'>Scanning image…</div>
+        `;
+        checkBtn.disabled = true;
+        Tesseract.recognize(imgSrc, 'eng').then(({ data: { text } }) => {
+          extractedText = text.trim();
+          fileLoaded = true;
+          document.getElementById('textPreview').innerText = extractedText
+            ? summarizeText(extractedText)
+            : 'No readable text found.';
+          checkBtn.disabled = false;
+        });
+      };
+      reader.readAsDataURL(file);
+    } else {
+      removeImage();
+    }
+  });
+
+  function removeImage() {
+    fileInput.value = '';
+    imagePreview.innerHTML = '';
+    imagePreview.style.display = 'none';
+    extractedText = '';
+    fileLoaded = false;
+    checkBtn.disabled = false;
+  }
+
+  function checkThis() {
+    const input = textArea.value.trim() || extractedText.trim();
+    if (!input) {
+      alert('Please paste suspicious text or wait for the image to finish scanning.');
+      return;
+    }
+    const result = evaluateText(input);
+    scoreResult.innerText = result;
+    const summary = summarizeText(input);
+    outputDiv.innerHTML += `<p>${getEmoji(result)} ${summary}</p>`;
+  }
+
+  function evaluateText(text) {
+    const lower = text.toLowerCase();
+    let score = 0;
+
+    const highRiskWords = [
+      "verify", "login", "update", "reset", "unauthorized", "account",
+      "credentials", "paypal", "bank", "zelle", "google voice",
+      "social security", "gift card", "wallet", "invoice", "overdue"
+    ];
+
+    const mediumRiskWords = [
+      "free", "congrats", "winner", "click", "act fast", "processing fee",
+      "confirm", "press here", "check this", "limited", "lucky", "clearance",
+      "security alert", "onlyfans", "sext", "cashapp", "crypto"
+    ];
+
+    highRiskWords.forEach(word => {
+      if (lower.includes(word)) score += 2;
     });
 
-    function removeImage() {
-      fileInput.value = '';
-      imagePreview.innerHTML = '';
-      imagePreview.style.display = 'none';
-      extractedText = '';
-      fileLoaded = false;
-      checkBtn.disabled = false;
+    mediumRiskWords.forEach(word => {
+      if (lower.includes(word)) score += 1;
+    });
+
+    // Pattern combos (sentence structure)
+    if (
+      (lower.includes("click here") || lower.includes("press here")) &&
+      (lower.includes("verify") || lower.includes("account"))
+    ) {
+      score += 2;
     }
 
-    function checkThis() {
-      const input = textArea.value.trim() || extractedText.trim();
-      if (!input) {
-        alert('Please paste suspicious text or wait for the image to finish scanning.');
-        return;
-      }
-      const result = evaluateText(input);
-      scoreResult.innerText = result;
-      const summary = summarizeText(input);
-      outputDiv.innerHTML += `<p>${getEmoji(result)} ${summary}</p>`;
-    }
+    // Fuzzy matching (spaced or symbol-padded keywords)
+    const fuzzy = /(v[\W_]*e[\W_]*r[\W_]*i[\W_]*f[\W_]*y|l[\W_]*o[\W_]*g[\W_]*i[\W_]*n|p[\W_]*a[\W_]*y[\W_]*p[\W_]*a[\W_]*l)/;
+    if (fuzzy.test(lower)) score += 3;
 
-    function evaluateText(text) {
-      const lower = text.toLowerCase();
-      const highRisk = /(verify|login|update|reset|click|unauthorized|account|credentials|paypal|bank|instagram|facebook|google voice|toll|ticket|fine|invoice|overdue|gift card|sext|onlyfans|cashapp|zelle|crypto|wallet|ssn|social security)/;
-      const mediumRisk = /(free|congrats|winner|limited|risk|warning|suspicious activity|confirm now|press here|act fast|refundable|processing fee|security alert|clearance|check this|lucky)/;
-
-      if (highRisk.test(lower)) {
-        return '🚨 This content is highly suspicious and likely a phishing attempt. Do not interact with it.';
-      } else if (mediumRisk.test(lower)) {
-        return '⚠️ This content seems suspicious. Proceed with caution and verify the source.';
-      } else {
-        return '✅ This content appears safe. No obvious phishing signs detected.';
-      }
+    if (score >= 5) {
+      return '🚨 This content is highly suspicious and likely a phishing attempt. Do not interact with it.';
+    } else if (score >= 2) {
+      return '⚠️ This content seems suspicious. Proceed with caution and verify the source.';
+    } else {
+      return '✅ This content appears safe. No obvious phishing signs detected.';
     }
+  }
 
-    function summarizeText(text) {
-      const clean = text.replace(/\s+/g, ' ').trim();
-      return clean.length > 80 ? clean.substring(0, 77) + '…' : clean;
-    }
+  function summarizeText(text) {
+    const clean = text.replace(/\s+/g, ' ').trim();
+    return clean.length > 80 ? clean.substring(0, 77) + '…' : clean;
+  }
 
-    function getEmoji(result) {
-      if (result.startsWith('🚨')) return '🚨';
-      if (result.startsWith('⚠️')) return '⚠️';
-      return '✅';
-    }
+  function getEmoji(result) {
+    if (result.startsWith('🚨')) return '🚨';
+    if (result.startsWith('⚠️')) return '⚠️';
+    return '✅';
+  }
 
-    function resetForm() {
-      fileInput.value = '';
-      imagePreview.innerHTML = '';
-      imagePreview.style.display = 'none';
-      textArea.value = '';
-      outputDiv.innerHTML = '';
-      scoreResult.innerText = '';
-      extractedText = '';
-      fileLoaded = false;
-      checkBtn.disabled = false;
-    }
+  function resetForm() {
+    fileInput.value = '';
+    imagePreview.innerHTML = '';
+    imagePreview.style.display = 'none';
+    textArea.value = '';
+    outputDiv.innerHTML = '';
+    scoreResult.innerText = '';
+    extractedText = '';
+    fileLoaded = false;
+    checkBtn.disabled = false;
+  }
 
-    function copyResults() {
-      const text = outputDiv.innerText;
-      navigator.clipboard.writeText(text).then(() => {
-        alert('Results copied to clipboard');
-      });
-    }
+  function copyResults() {
+    const text = outputDiv.innerText;
+    navigator.clipboard.writeText(text).then(() => {
+      alert('Results copied to clipboard');
+    });
+  }
 
-    function clearHistory() {
-      outputDiv.innerHTML = '';
-    }
+  function clearHistory() {
+    outputDiv.innerHTML = '';
+  }
   </script>
 </body>
 </html>

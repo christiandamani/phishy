@@ -147,7 +147,7 @@
     <div class="footer">🐟 <em>Don’t take the bait</em> — 🪱 🪝</div>
   </div>
   
- <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
 <script>
   const fileInput = document.getElementById('fileInput');
   const imagePreview = document.getElementById('imagePreview');
@@ -158,17 +158,6 @@
 
   let extractedText = '';
   let fileLoaded = false;
-  let phishingRules = null;
-
-  // Load external phishing rules JSON
-  fetch('phishy_rules.json')
-    .then(res => res.json())
-    .then(data => {
-      phishingRules = data;
-    })
-    .catch(err => {
-      console.error("Could not load phishing rules.", err);
-    });
 
   fileInput.addEventListener('change', function () {
     const file = this.files[0];
@@ -213,45 +202,20 @@
       alert('Please paste suspicious text or wait for the image to finish scanning.');
       return;
     }
-    if (!phishingRules) {
-      alert('Phishing detection rules not loaded. Try again in a moment.');
-      return;
-    }
-
-    const result = evaluateText(input, phishingRules);
+    const result = evaluateText(input);
     scoreResult.innerText = result;
     const summary = summarizeText(input);
     outputDiv.innerHTML += `<p>${getEmoji(result)} ${summary}</p>`;
   }
 
-  function evaluateText(text, rules) {
+  function evaluateText(text) {
     const lower = text.toLowerCase();
-    let score = 0;
+    const highRisk = /(verify|login|update|reset|click|unauthorized|account|credentials|paypal|bank|instagram|facebook|google voice|toll|ticket|fine|invoice|overdue|gift card|sext|onlyfans|cashapp|zelle|crypto|wallet|ssn|social security)/;
+    const mediumRisk = /(free|congrats|winner|limited|risk|warning|suspicious activity|confirm now|press here|act fast|refundable|processing fee|security alert|clearance|check this|lucky)/;
 
-    // Check phrases
-    rules.phrases.forEach(p => {
-      if (lower.includes(p)) score += 1;
-    });
-
-    // Check suspicious URLs
-    const urls = text.match(/http[s]?:\/\/[^\s]+/g) || [];
-    urls.forEach(url => {
-      if (url.length > 100) score += 2;
-      rules.tlds.forEach(tld => {
-        if (url.includes(tld)) score += 2;
-      });
-      rules.urlPatterns.forEach(pattern => {
-        if (url.toLowerCase().includes(pattern)) score += 1;
-      });
-    });
-
-    // Fuzzy risky keywords
-    const fuzzy = /(v[\W_]*e[\W_]*r[\W_]*i[\W_]*f[\W_]*y|l[\W_]*o[\W_]*g[\W_]*i[\W_]*n|p[\W_]*a[\W_]*y[\W_]*p[\W_]*a[\W_]*l)/;
-    if (fuzzy.test(lower)) score += 3;
-
-    if (score >= 7) {
+    if (highRisk.test(lower)) {
       return '🚨 This content is highly suspicious and likely a phishing attempt. Do not interact with it.';
-    } else if (score >= 3) {
+    } else if (mediumRisk.test(lower)) {
       return '⚠️ This content seems suspicious. Proceed with caution and verify the source.';
     } else {
       return '✅ This content appears safe. No obvious phishing signs detected.';

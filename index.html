@@ -159,6 +159,17 @@
   let extractedText = '';
   let fileLoaded = false;
 
+  const phishingRules = {
+    phrases: [
+      "naughty", "play with you", "login here", "verify credentials", "urgent notice",
+      "nude", "sext", "onlyfans", "free gift", "crypto giveaway", "zelle refund", "reset your account",
+      "your account has been locked", "confirm identity", "unauthorized access", "bank alert",
+      "free iphone", "click to claim", "act fast", "limited offer", "security issue"
+    ],
+    tlds: [".top", ".xyz", ".gq", ".tk", ".ml", ".buzz", ".rest", ".cam", ".click", ".review", ".monster", ".zip", ".lol", ".cn", ".ru", ".su", ".pw", ".to", ".cc", ".bid", ".work"],
+    urlPatterns: ["session=", "token=", "verify.php", "login.php", "reset-password", "account-verification", "securelogin", "bit.ly", "tinyurl", "pornhubcdn", "%2f", "base64"]
+  };
+
   fileInput.addEventListener('change', function () {
     const file = this.files[0];
     if (file && file.type.startsWith('image/')) {
@@ -202,6 +213,7 @@
       alert('Please paste suspicious text or wait for the image to finish scanning.');
       return;
     }
+
     const result = evaluateText(input);
     scoreResult.innerText = result;
     const summary = summarizeText(input);
@@ -210,12 +222,29 @@
 
   function evaluateText(text) {
     const lower = text.toLowerCase();
-    const highRisk = /(verify|login|update|reset|click|unauthorized|account|credentials|paypal|bank|instagram|facebook|google voice|toll|ticket|fine|invoice|overdue|gift card|sext|onlyfans|cashapp|zelle|crypto|wallet|ssn|social security)/;
-    const mediumRisk = /(free|congrats|winner|limited|risk|warning|suspicious activity|confirm now|press here|act fast|refundable|processing fee|security alert|clearance|check this|lucky)/;
+    let score = 0;
 
-    if (highRisk.test(lower)) {
+    phishingRules.phrases.forEach(p => {
+      if (lower.includes(p)) score += 2;
+    });
+
+    const urls = text.match(/http[s]?:\/\/[^\s]+/g) || [];
+    urls.forEach(url => {
+      if (url.length > 100) score += 2;
+      phishingRules.tlds.forEach(tld => {
+        if (url.includes(tld)) score += 2;
+      });
+      phishingRules.urlPatterns.forEach(pattern => {
+        if (url.toLowerCase().includes(pattern)) score += 1;
+      });
+    });
+
+    const fuzzy = /(v[\W_]*e[\W_]*r[\W_]*i[\W_]*f[\W_]*y|l[\W_]*o[\W_]*g[\W_]*i[\W_]*n|p[\W_]*a[\W_]*y[\W_]*p[\W_]*a[\W_]*l)/;
+    if (fuzzy.test(lower)) score += 3;
+
+    if (score >= 7) {
       return '🚨 This content is highly suspicious and likely a phishing attempt. Do not interact with it.';
-    } else if (mediumRisk.test(lower)) {
+    } else if (score >= 3) {
       return '⚠️ This content seems suspicious. Proceed with caution and verify the source.';
     } else {
       return '✅ This content appears safe. No obvious phishing signs detected.';
